@@ -65,11 +65,40 @@
 
 | Parameter | Value | Constraint | Description |
 | :--- | :---: | :---: | :--- |
-| `ENTRY_TH_BREAKOUT` | **50** | `≥ 45` | 돌파 매매전략 진입 임계 점수. (엄격형 통과 보장용 하향조정) |
-| `ENTRY_TH_VOLUME` | **49** | `≥ 45` | 수급 매매전략 진입 임계 점수. |
+| `ENTRY_TH_BREAKOUT` | **55** | `≥ 45` | [V28.3 P1] Trend-Only(100) 해제 — 5/28 원값 50 대비 +5 보수 복원. |
+| `ENTRY_TH_VOLUME` | **54** | `≥ 45` | [V28.4] 잠금 해제 (5/28 원값 49, +5 보수) — §2.6.2 재정의 게이트와 동시 적용. |
 | `ENTRY_TH_TREND` | **60** | `≥ 50` | 추세 추종 매매전략 진입 임계 점수. (노이즈 진입 방지 복원) |
-| `ENTRY_TH_REVERSAL` | **54** | `≥ 45` | 역추세/평균회귀 매매전략 진입 임계 점수. |
-| `ENTRY_TH_MIXED` | **61** | `≥ 50` | 복합 조건 매매전략 진입 임계 점수. |
+| `ENTRY_TH_REVERSAL` | **100** | `≥ 45` | [V27.9] 전략 잠금 유지 (원값 54) — 섀도 측정 후 해제 검토. |
+| `ENTRY_TH_MIXED` | **65** | `≥ 50` | [V28.3 P1] Trend-Only(100) 해제 — 5/28 원값 61 대비 +4 보수 복원. |
+
+### 2.6.1 진입 게이트 보정 파라미터 (Entry Gate Calibration) [V28.3]
+> 근거: 진입게이트 비교분석 (2026-06-11) — 음성 필터 교집합의 '꼭지 수렴(역선택)' 보정.
+
+| Parameter | Value | Constraint | Description |
+| :--- | :---: | :---: | :--- |
+| `ENTRY_MATURITY_PULLBACK_EXEMPT` | **True** | `Bool` | [P3] 진행봉 음봉/보합 또는 세션 고점 되돌림 시 Bar-Maturity 대기 면제. |
+| `ENTRY_PULLBACK_RETRACE_PCT` | **0.01** | `0.005~0.03` | [P3] 성숙도 면제용 세션 고점 대비 최소 되돌림 비율. |
+| `ENTRY_LOW_LOCATION_BONUS` | **5** | `0~10, 0=OFF` | [P4] 저점 위치(VWAP 근접/고점 되돌림) 시 entry_th 완화 폭. |
+| `ENTRY_VWAP_PROXIMITY_PCT` | **0.01** | `0.005~0.02` | [P4] 세션 VWAP 근접 판정 허용 범위 (±). |
+| `ENTRY_HIGH_RETRACE_PCT` | **0.02** | `0.01~0.05` | [P4] 가점용 세션 고점 대비 최소 되돌림 비율. |
+| `MORNING_VOLUME_GUARD_MULT` | **1.1** | `0=OFF` | [P2] 당일 봉 3개 이상 절사평균 구간에서만 평가 (1~2개 구간 스킵 — 시초봉 분모 결함 수정). [P5] `GUARD_SHADOW_MODE` 준수. |
+| `ENTRY_MIN_VALUE_5M` | **50,000,000** | `0=OFF` | [P5] `GUARD_SHADOW_MODE` 준수로 통일 (기존: 무조건 차단). |
+
+### 2.6.2 VOLUME 전략 재정의 (지속 수급 + 비클라이맥스) [V28.4]
+> **원칙**: "단일봉 스파이크 추격" → "매집 확인 후 비클라이맥스 위치 진입"으로 전략 정의 자체를 교체.
+> 근거: trades.db VOLUME 428건 — 승률 26%, -0.47%/건, MFE +0.94%/MAE -0.98% 대칭(엣지 0), 65%가 0~3봉 사망.
+> 분석: `docs/analysis/2026-06-11_NonTrend_Strategy_Structural_Analysis_ko.md` §3.1
+> **주의**: 아래 게이트는 L3 리스크 가드가 아니라 전략 '정의'이므로 `ENTRY_TH`와 동급으로 `GUARD_SHADOW_MODE` **미적용**(무조건 차단). P5(신규 가드 섀도 통일) 위배 아님.
+
+| Parameter | Value | Constraint | Description |
+| :--- | :---: | :---: | :--- |
+| `VOLUME_REDEFINE_ENABLED` | **True** | `True/False` | False 시 구정의(`VOLUME_MIN_VOL_RATIO` 1.5 가드) + TP1 면제로 복귀. `ENTRY_TH_VOLUME=100`과 함께 V28.3 완전 롤백. |
+| `VOLUME_SUSTAIN_BARS` | **3** | `2~5` | 지속 수급 판정용 직전 완성봉 관찰 개수. |
+| `VOLUME_SUSTAIN_MIN_RATIO` | **1.2** | `1.0~1.5` | 지속 수급 인정 vol_ratio 하한 (매집 봉 판정). |
+| `VOLUME_SUSTAIN_MIN_COUNT` | **2** | `1~N` | N봉 중 최소 충족 봉 수 미달 시 차단. |
+| `VOLUME_CLIMAX_RATIO` | **2.0** | `1.5~3.0` | 현재봉이 이 배수 이상 분출 중이면 클라이맥스 후보. |
+| `VOLUME_CLIMAX_HIGH_PROX` | **0.998** | `Fixed` | 클라이맥스 봉이 세션 고점 × 0.998 이상에 위치하면 추격 차단. |
+| `VOLUME_TP1_PCT` | **0.009** | `0=OFF` | 소수확 TP1 (+0.9% 부분익절) — MFE 분포(+0.94%) 정합. TP1 면제(주도주 취급) 해제. 잔량은 BE 버퍼/트레일 보호. |
 
 ---
 
@@ -136,6 +165,19 @@
 | `FLASH_CRASH_ENABLED` | **True** | `True/False` | 급락 갭 보호 기능 활성화 여부. |
 | `FLASH_CRASH_DRAWDOWN_LIMIT`| **0.06** | `Fixed` | 고점(peak) 대비 6% 이상 급락 시 웜업가드 무관 즉시 청산. |
 | `FLASH_CRASH_MIN_PEAK` | **0.03** | `Fixed` | 최소 고점 수익률이 3% 이상일 때만 노이즈 방지를 위해 발동. |
+
+### 4.4.1 BREAKOUT Fail Cut (돌파 실패 구조 청산) [V28.4]
+> **원칙**: 진입 근거(직전 봉 고가 돌파)가 무효화되면 % 손절을 기다리지 않고 즉시 청산한다.
+> 근거: trades.db BREAKOUT 43건 — NORMAL +0.18% vs STOP_LOSS 12건 -2.78% (이중 분포).
+> 분석: `docs/analysis/2026-06-11_NonTrend_Strategy_Structural_Analysis_ko.md` §3.3
+
+| Parameter | Value | Constraint | Description |
+| :--- | :---: | :---: | :--- |
+| `BREAKOUT_FAIL_CUT_ENABLED` | **True** | `True/False` | False 시 V28.3 동작 완전 복귀 (롤백 스위치). |
+| `BREAKOUT_FAIL_CUT_BUFFER` | **0.003** | `0.001 ~ 0.01` | 돌파 레벨 하회 허용 버퍼(리테스트 노이즈 흡수). 현재가 < 레벨×(1-버퍼) 시 청산. |
+
+- 진입 시 직전 봉 고가를 **실제로 돌파한 경우에만** `breakout_level` 무장. Fallback BREAKOUT(바디 돌파/과매도 완화 경로)은 미무장 — 즉시 오발동 방지.
+- WarmupGuard **무관** 발동 (Flash Crash 동급) — 표적이 0~3봉 조기 사망 구간이기 때문.
 
 ### 4.5 Hybrid Profit-Based Trailing Stop (이익 연계 트레일링) [V23.3]
 > **공식**: `giveback = min(PEAK_TRAIL_<STRATEGY>, base_giveback * (profit^TRAIL_NONLINEAR_EXP))`
