@@ -1,6 +1,8 @@
 # 📖 NoCodeQuant Open (AI Strategy Docs & Reports) - Public Repository
 
 ![NoCodeQuant UI](docs/assets/nocodequant_gui.png)
+![Strategy Performance Board](docs/assets/strategy_performance.png)
+![Market Rotation Report](docs/assets/market_rotation_report.png)
 
 > **NoCodeQuant Open**은 AI 주도 정밀 규격 트레이딩 시스템 NoCodeQuant의 **기획서, 시스템 아키텍처, 백테스팅 성과 리포트, 그리고 데일리 개발 일지**를 기록하고 투명하게 공유하기 위한 **공개 문서 저장소**입니다.
 
